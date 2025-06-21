@@ -34,13 +34,34 @@ If you want to hack on the code:
 # Backend (requires API keys)
 cd backend
 cp .env.example .env  # Add your API keys
-pip install -e .
+pip install -r requirements.txt  # or: pip install -e .
 langgraph dev
 
 # Frontend  
 cd frontend
 npm install
 npm run dev
+```
+
+## Requirements
+
+- Python 3.11+
+- Node.js 18+
+- OpenAI API key
+- Tavily API key (for web search)
+
+## Environment Setup
+
+Copy the environment template and add your API keys:
+
+```bash
+cp backend/.env.example backend/.env
+```
+
+Edit `backend/.env` and add:
+```bash
+OPENAI_API_KEY=your_openai_api_key_here
+TAVILY_API_KEY=your_tavily_api_key_here
 ```
 
 ## Architecture
