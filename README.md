@@ -1,120 +1,412 @@
-# Gemini Fullstack LangGraph Quickstart
+# OpenLoop Resear## 🏗️ Architecture
 
-This project demonstrates a fullstack application using a React frontend and a LangGraph-powered backend agent. The agent is designed to perform comprehensive research on a user's query by dynamically generating search terms, querying the web using Google Search, reflecting on the results to identify knowledge gaps, and iteratively refining its search until it can provide a well-supported answer with citations. This application serves as an example of building research-augmented conversational AI using LangGraph and Google's Gemini models.
+```
+🔄 Single Agent Research Flow
+├── 📝 Question Input
+├── 🧠 Generate Queries     (Create optimized search queries)
+├── 🔍 Web Search          (Tavily API + OpenAI processing) 
+├── 🤔 Reflection          (Identify knowledge gaps)
+├── 🔄 Iterative Loops     (Continue until sufficient)
+└── ✅ Answer Generation   (Synthesized response with sources)
+```
 
-<img src="./app.png" title="Gemini Fullstack LangGraph" alt="Gemini Fullstack LangGraph" width="90%">
+**Research Loop Process:**
+1. **Question** → Generate multiple search queries
+2. **Web Search** → Gather information from multiple sources  
+3. **Reflection** → Analyze if more research needed
+4. **Loop or Finish** → Continue searching or generate final answernt
 
-## Features
+A powerful AI research assistant built with LangGraph and OpenAI, featuring real web search capabilities and beautiful modern UI. Get comprehensive, well-sourced answers to any question with live web data.
 
-- 💬 Fullstack application with a React frontend and LangGraph backend.
-- 🧠 Powered by a LangGraph agent for advanced research and conversational AI.
-- 🔍 Dynamic search query generation using Google Gemini models.
-- 🌐 Integrated web research via Google Search API.
-- 🤔 Reflective reasoning to identify knowledge gaps and refine searches.
-- 📄 Generates answers with citations from gathered sources.
-- 🔄 Hot-reloading for both frontend and backend during development.
+<img src="./app.png" title="OpenLoop Research Assistant" alt="OpenLoop Research Assistant" width="90%">
 
-## Project Structure
+## ✨ Features
 
-The project is divided into two main directories:
+- 🤖 **Intelligent Agent**: Advanced reasoning with iterative research loops
+- 🌐 **Real Web Search**: Integrated Tavily API for current information
+- 🔍 **Smart Query Generation**: Automatically creates optimized search queries
+- 📚 **Source Citations**: Real URLs with proper attribution
+- 🎯 **Quality Control**: Reflection and validation mechanisms
+- � **Modern UI**: Clean, responsive interface with real-time timeline
+- 🌍 **Multi-language**: Responds in user's language (Vietnamese/English)
+- ⚡ **Fast & Reliable**: Optimized single-agent architecture
 
--   `frontend/`: Contains the React application built with Vite.
--   `backend/`: Contains the LangGraph/FastAPI application, including the research agent logic.
+## 🏗️ Architecture
 
-## Getting Started: Development and Local Testing
+```
+� Single Agent Research Flow
+├── � Query Generation    (Create optimized search queries)
+├── 🔍 Web Research       (Tavily API + OpenAI processing) 
+├── 🤔 Reflection        (Identify knowledge gaps)
+├── 🔄 Iterative Loops   (Continue until sufficient)
+└── ✅ Final Answer      (Synthesized response with sources)
+```
 
-Follow these steps to get the application running locally for development and testing.
+## 🚀 Quick Start
 
-**1. Prerequisites:**
+### Prerequisites
+- Node.js 18+ and npm
+- Python 3.11+
+- OpenAI API key
+- Tavily API key (optional, for real web search)
 
--   Node.js and npm (or yarn/pnpm)
--   Python 3.11+
--   **`GEMINI_API_KEY`**: The backend agent requires a Google Gemini API key.
-    1.  Navigate to the `backend/` directory.
-    2.  Create a file named `.env` by copying the `backend/.env.example` file.
-    3.  Open the `.env` file and add your Gemini API key: `GEMINI_API_KEY="YOUR_ACTUAL_API_KEY"`
-
-**2. Install Dependencies:**
-
-**Backend:**
+### 1. Backend Setup
 
 ```bash
 cd backend
-pip install .
+
+# Install dependencies
+pip install -e .
+
+# Set environment variables
+echo "OPENAI_API_KEY=your_openai_api_key" > .env
+echo "TAVILY_API_KEY=your_tavily_api_key" >> .env  # Optional for real search
+
+# Start backend server
+python -m agent.app
+# Backend will run on http://localhost:2024
 ```
 
-**Frontend:**
+### 2. Frontend Setup
 
 ```bash
 cd frontend
+
+# Install dependencies
 npm install
+
+# Start development server
+npm run dev
+# Frontend will run on http://localhost:5173
 ```
 
-**3. Run Development Servers:**
+### 3. Access the Application
 
-**Backend & Frontend:**
+Open your browser and navigate to:
+- **Application**: http://localhost:5173
+- **API Documentation**: http://localhost:2024/docs
+- **Health Check**: http://localhost:2024/health
 
+## 🔧 Configuration
+
+### Environment Variables
+
+**Option 1: Use .env file (recommended for development)**
 ```bash
-make dev
+# Create backend/.env file
+echo "OPENAI_API_KEY=your_openai_api_key_here" > backend/.env
+echo "TAVILY_API_KEY=your_tavily_api_key_here" >> backend/.env
 ```
-This will run the backend and frontend development servers.    Open your browser and navigate to the frontend development server URL (e.g., `http://localhost:5173/app`).
 
-_Alternatively, you can run the backend and frontend development servers separately. For the backend, open a terminal in the `backend/` directory and run `langgraph dev`. The backend API will be available at `http://127.0.0.1:2024`. It will also open a browser window to the LangGraph UI. For the frontend, open a terminal in the `frontend/` directory and run `npm run dev`. The frontend will be available at `http://localhost:5173`._
+**Option 2: Use system environment (if already in bashrc/zshrc)**
+```bash
+# If you already have these in your shell profile:
+export OPENAI_API_KEY=your_openai_api_key_here
+export TAVILY_API_KEY=your_tavily_api_key_here
 
-## How the Backend Agent Works (High-Level)
+# No need to create .env file - app will read from environment
+```
 
-The core of the backend is a LangGraph agent defined in `backend/src/agent/graph.py`. It follows these steps:
+**Option 3: Runtime export**
+```bash
+export OPENAI_API_KEY=your_key
+export TAVILY_API_KEY=your_key
+python -m agent.app
+```
 
-<img src="./agent.png" title="Agent Flow" alt="Agent Flow" width="50%">
+### Research Settings
 
-1.  **Generate Initial Queries:** Based on your input, it generates a set of initial search queries using a Gemini model.
-2.  **Web Research:** For each query, it uses the Gemini model with the Google Search API to find relevant web pages.
-3.  **Reflection & Knowledge Gap Analysis:** The agent analyzes the search results to determine if the information is sufficient or if there are knowledge gaps. It uses a Gemini model for this reflection process.
-4.  **Iterative Refinement:** If gaps are found or the information is insufficient, it generates follow-up queries and repeats the web research and reflection steps (up to a configured maximum number of loops).
-5.  **Finalize Answer:** Once the research is deemed sufficient, the agent synthesizes the gathered information into a coherent answer, including citations from the web sources, using a Gemini model.
+Adjust research intensity in the UI:
+- **Low**: 1 query, 1 loop (fast, basic)
+- **Medium**: 3 queries, 3 loops (balanced)
+- **High**: 5 queries, 10 loops (comprehensive)
 
-## CLI Example
+## 📦 Production Deployment
 
-For quick one-off questions you can execute the agent from the command line. The
-script `backend/examples/cli_research.py` runs the LangGraph agent and prints the
-final answer:
+### Prerequisites
+
+- Docker & Docker Compose (recommended)
+- Node.js 18+ & npm (for manual deployment)
+- Python 3.11+ & pip (for manual deployment)
+
+### Quick Start
+
+1. **Clone & Setup**
+```bash
+git clone <your-repo>
+cd openloop
+```
+
+2. **Environment Configuration (Choose one option)**
+
+**Option A: If API keys already in bashrc/environment**
+```bash
+# Skip this step - app will read from your environment variables
+echo $OPENAI_API_KEY  # Should show your key
+```
+
+**Option B: Create .env file**
+```bash
+cp backend/.env.example backend/.env
+nano backend/.env  # Add your API keys
+```
+
+3. **Production Readiness Check**
+```bash
+./check-production.sh
+```
+
+4. **Deploy**
+
+**Option A: With Docker (Recommended)**
+```bash
+./deploy.sh  # Uses Docker Compose
+```
+
+**Verify deployment:**
+```bash
+./verify-deployment.sh  # Check if everything is working
+```
+
+**Option B: Manual Development**
+```bash
+# Backend (Terminal 1)
+cd backend && python -m agent.app
+
+# Frontend (Terminal 2)  
+cd frontend && npm run dev
+```
+
+**Option C: Manual Production**
+```bash
+# Backend production
+cd backend && python -m agent.app
+
+# Frontend production (different terminal)
+cd frontend && npm run preview
+```
+
+5. **Access Application**
+- Application: http://localhost:3000/app/
+- API Docs: http://localhost:3000/docs
+- Health Check: http://localhost:3000/health
+
+## 🌐 **Share with Friends**
+
+**For demo/sharing (no cost):**
+```bash
+# Option 1: Ngrok (create public tunnel)
+# Install: https://ngrok.com/download
+ngrok http 3000
+# Share the https://xyz.ngrok.io/app/ link
+
+# Option 2: GitHub Codespaces (60h free/month)
+# Push to GitHub and create Codespace
+# Port 3000 will auto-forward with public URL
+```
+
+See `SHARING_GUIDE.md` for detailed instructions.
+
+## 🎛️ Usage
+
+1. **Ask any question** in Vietnamese or English
+2. **Choose research effort** (Low/Medium/High)
+3. **Select AI model** (GPT-4o Mini recommended)
+4. **Watch the timeline** as research progresses
+5. **Get comprehensive answers** with real source citations
+
+### Example Queries
+
+```
+Sơn Tùng M-TP là ai?
+What are the latest developments in AI?
+How does quantum computing work?
+Compare React vs Vue.js in 2025
+```
+
+## 🏗️ Technical Details
+
+### Stack
+- **Backend**: FastAPI + LangGraph + OpenAI + Tavily
+- **Frontend**: React + TypeScript + Vite + TailwindCSS
+- **Search**: Tavily API (real-time web search)
+- **AI**: OpenAI GPT models (4o-mini recommended)
+
+### Key Files
+```
+backend/
+├── src/agent/
+│   ├── app.py              # FastAPI application
+│   ├── graph.py            # LangGraph research flow
+│   ├── prompts.py          # AI prompts
+│   └── configuration.py    # Settings
+frontend/
+├── src/
+│   ├── App.tsx             # Main application
+│   ├── components/         # UI components
+│   └── lib/               # Utilities
+## 📚 API Usage
+
+### REST API
+
+```python
+import requests
+
+# Research query
+response = requests.post("http://localhost:2024/research", json={
+    "query": "Latest AI developments in healthcare", 
+    "max_research_loops": 3,
+    "reasoning_model": "gpt-4o-mini"
+})
+
+result = response.json()
+print(f"Answer: {result['answer']}")
+print(f"Sources: {result['sources']}")
+```
+
+### Streaming API
+
+```python
+import requests
+
+# Stream research progress
+response = requests.post("http://localhost:2024/runs/stream", 
+    json={
+        "assistant_id": "agent",
+        "input": {
+            "messages": [{"type": "human", "content": "Your question"}],
+            "max_research_loops": 3
+        }
+    },
+    stream=True
+)
+
+for line in response.iter_lines():
+    if line.startswith(b'data: '):
+        data = json.loads(line[6:])
+        print(data)
+```
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- [LangGraph](https://github.com/langchain-ai/langgraph) for the agent framework
+- [OpenAI](https://openai.com) for the language models
+- [Tavily](https://tavily.com) for real-time web search
+- [React](https://react.dev) and [TailwindCSS](https://tailwindcss.com) for the beautiful UI
+
+## 🆘 Support
+
+- 📖 Check the [API Documentation](http://localhost:2024/docs)
+- 🐛 Report issues on [GitHub Issues](https://github.com/your-repo/issues)
+- 💬 Join our community discussions
+
+## 🚀 Production Deployment Guide
+
+### Method 1: Docker Compose (Recommended)
 
 ```bash
+# 1. Clone and setup
+git clone <your-repo>
+cd openloop
+
+# 2. Create environment file
+cp backend/.env.example backend/.env
+# Edit .env with your API keys
+
+# 3. Build and deploy
+docker-compose up --build -d
+
+# 4. Health check
+curl http://localhost:3000/health
+```
+
+### Method 2: Manual Production Build
+
+```bash
+# Backend production
 cd backend
-python examples/cli_research.py "What are the latest trends in renewable energy?"
+pip install -e .
+export OPENAI_API_KEY=your_key
+export TAVILY_API_KEY=your_key
+python -m agent.app
+
+# Frontend production  
+cd frontend
+npm install
+npm run build
+npm run preview
 ```
 
+### Method 3: Cloud Deployment
 
-## Deployment
+#### Vercel + Railway
+```bash
+# Frontend on Vercel
+cd frontend
+npm run build
+# Deploy to Vercel
 
-In production, the backend server serves the optimized static frontend build. LangGraph requires a Redis instance and a Postgres database. Redis is used as a pub-sub broker to enable streaming real time output from background runs. Postgres is used to store assistants, threads, runs, persist thread state and long term memory, and to manage the state of the background task queue with 'exactly once' semantics. For more details on how to deploy the backend server, take a look at the [LangGraph Documentation](https://langchain-ai.github.io/langgraph/concepts/deployment_options/). Below is an example of how to build a Docker image that includes the optimized frontend build and the backend server and run it via `docker-compose`.
+# Backend on Railway
+cd backend  
+# Deploy to Railway with .env vars
+```
 
-_Note: For the docker-compose.yml example you need a LangSmith API key, you can get one from [LangSmith](https://smith.langchain.com/settings)._
+#### Docker on Cloud
+```bash
+# Build production image
+docker build -t openloop-research .
 
-_Note: If you are not running the docker-compose.yml example or exposing the backend server to the public internet, you should update the `apiUrl` in the `frontend/src/App.tsx` file to your host. Currently the `apiUrl` is set to `http://localhost:8123` for docker-compose or `http://localhost:2024` for development._
+# Deploy to cloud provider
+docker run -p 3000:2024 -e OPENAI_API_KEY=key openloop-research
+```
 
-**1. Build the Docker Image:**
+### Production Checklist
 
-   Run the following command from the **project root directory**:
-   ```bash
-   docker build -t gemini-fullstack-langgraph -f Dockerfile .
-   ```
-**2. Run the Production Server:**
+- ✅ Set secure API keys in environment
+- ✅ Enable HTTPS/SSL certificates  
+- ✅ Configure CORS for your domains
+- ✅ Set up monitoring and logging
+- ✅ Configure rate limiting
+- ✅ Set up database backup (if applicable)
+- ✅ Configure CI/CD pipeline
 
-   ```bash
-   GEMINI_API_KEY=<your_gemini_api_key> LANGSMITH_API_KEY=<your_langsmith_api_key> docker-compose up
-   ```
+### Monitoring
 
-Open your browser and navigate to `http://localhost:8123/app/` to see the application. The API will be available at `http://localhost:8123`.
+```bash
+# Health check endpoint
+curl https://your-domain.com/health
 
-## Technologies Used
+# API status  
+curl https://your-domain.com/docs
+```
 
-- [React](https://reactjs.org/) (with [Vite](https://vitejs.dev/)) - For the frontend user interface.
-- [Tailwind CSS](https://tailwindcss.com/) - For styling.
-- [Shadcn UI](https://ui.shadcn.com/) - For components.
-- [LangGraph](https://github.com/langchain-ai/langgraph) - For building the backend research agent.
-- [Google Gemini](https://ai.google.dev/models/gemini) - LLM for query generation, reflection, and answer synthesis.
+---
 
-## License
+## 📋 Summary
 
-This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE) file for details. 
+**OpenLoop Research Assistant** is now optimized for production:
+
+- 🧹 **Clean Codebase**: Removed all multi-agent code, build artifacts, and unused imports
+- 🚀 **Production Ready**: Docker, health checks, environment configuration
+- 📚 **Complete Documentation**: Setup, deployment, and troubleshooting guides
+- 🔒 **Secure**: Environment variables, CORS, .gitignore configured
+- ⚡ **Performance**: Single-agent architecture, optimized dependencies
+- 🛠️ **Developer Friendly**: Scripts for checking and deploying
+
+**Ready to deploy with one command: `./deploy.sh`**
+
+---
+
+**OpenLoop Research Assistant** - Intelligent research made simple. 🧠✨ 

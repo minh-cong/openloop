@@ -34,7 +34,7 @@ Topic: What revenue grew more last year apple stock or the number of people buyi
 Context: {research_topic}"""
 
 
-web_searcher_instructions = """Conduct targeted Google Searches to gather the most recent, credible information on "{research_topic}" and synthesize it into a verifiable text artifact.
+web_searcher_instructions = """Conduct targeted web searches to gather the most recent, credible information on "{research_topic}" and synthesize it into a verifiable text artifact.
 
 Instructions:
 - Query should ensure that the most current information is gathered. The current date is {current_date}.
@@ -87,7 +87,8 @@ Instructions:
 - You have access to all the information gathered from the previous steps.
 - You have access to the user's question.
 - Generate a high-quality answer to the user's question based on the provided summaries and the user's question.
-- Include the sources you used from the Summaries in the answer correctly, use markdown format (e.g. [apnews](https://vertexaisearch.cloud.google.com/id/1-0)). THIS IS A MUST.
+- IMPORTANT: Respond in the same language as the user's question. If the user asks in Vietnamese, respond in Vietnamese. If the user asks in English, respond in English.
+- Include the sources you used from the Summaries in the answer correctly, use markdown format like [source_name](actual_url_from_summary). Use the ACTUAL URLs from the summaries, not placeholder URLs. THIS IS A MUST.
 
 User Context:
 - {research_topic}

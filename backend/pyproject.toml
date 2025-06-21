@@ -2,27 +2,33 @@
 name = "agent"
 version = "0.0.1"
 description = "Backend for the LangGraph agent"
-authors = [
-    { name = "Philipp Schmid", email = "schmidphilipp1995@gmail.com" },
-]
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.11,<4.0"
 dependencies = [
     "langgraph>=0.2.6",
-    "langchain>=0.3.19",
-    "langchain-google-genai",
+    "langchain>=0.3.19", 
+    "langchain-openai",
+    "openai",
     "python-dotenv>=1.0.1",
     "langgraph-sdk>=0.1.57",
     "langgraph-cli",
     "langgraph-api",
     "fastapi",
-    "google-genai",
+    "uvicorn",
+    "pydantic",
+    "asyncio",
+    "tavily-python>=0.3.0",
 ]
 
 
 [project.optional-dependencies]
 dev = ["mypy>=1.11.1", "ruff>=0.6.1"]
+search = [
+    "tavily-python>=0.3.0",  # For Tavily search API (recommended)
+    "google-search-results>=2.4.2",  # For SerpAPI
+    "duckduckgo-search>=5.0.0",  # For DuckDuckGo search (free)
+]
 
 [build-system]
 requires = ["setuptools>=73.0.0", "wheel"]

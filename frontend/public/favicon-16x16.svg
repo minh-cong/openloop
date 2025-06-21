@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <defs>
+    <linearGradient id="gradient-small" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f5f5f5" />
+      <stop offset="100%" stop-color="#a3a3a3" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Outer ring -->
+  <circle cx="8" cy="8" r="6.5" fill="none" stroke="url(#gradient-small)" stroke-width="1.5" />
+  
+  <!-- Letter O -->
+  <text x="8" y="11" font-family="Arial, sans-serif" font-size="8" font-weight="bold" 
+        text-anchor="middle" fill="#737373">O</text>
+  
+  <!-- Small connecting dots -->
+  <circle cx="8" cy="2" r="0.8" fill="#737373" />
+  <circle cx="14" cy="8" r="0.8" fill="#737373" />
+  <circle cx="8" cy="14" r="0.8" fill="#737373" />
+  <circle cx="2" cy="8" r="0.8" fill="#737373" />
+</svg>

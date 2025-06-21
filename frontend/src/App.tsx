@@ -1,10 +1,15 @@
-import { useStream } from "@langchain/langgraph-sdk/react";
-import type { Message } from "@langchain/langgraph-sdk";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { ProcessedEvent } from "@/components/ActivityTimeline";
 import { WelcomeScreen } from "@/components/WelcomeScreen";
 import { ChatMessagesView } from "@/components/ChatMessagesView";
 import { Button } from "@/components/ui/button";
+
+// Define Message type locally
+interface Message {
+  type: "human" | "ai";
+  content: string;
+  id: string;
+}
 
 export default function App() {
   const [processedEventsTimeline, setProcessedEventsTimeline] = useState<
@@ -13,63 +18,123 @@ export default function App() {
   const [historicalActivities, setHistoricalActivities] = useState<
     Record<string, ProcessedEvent[]>
   >({});
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const hasFinalizeEventOccurredRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
-  const thread = useStream<{
-    messages: Message[];
-    initial_search_query_count: number;
-    max_research_loops: number;
-    reasoning_model: string;
-  }>({
-    apiUrl: import.meta.env.DEV
-      ? "http://localhost:2024"
-      : "http://localhost:8123",
-    assistantId: "agent",
-    messagesKey: "messages",
-    onUpdateEvent: (event: any) => {
-      let processedEvent: ProcessedEvent | null = null;
-      if (event.generate_query) {
-        processedEvent = {
-          title: "Generating Search Queries",
-          data: event.generate_query?.search_query?.join(", ") || "",
+
+  // Custom hook to replace useStream
+  const thread = {
+    messages,
+    isLoading,
+    submit: async (config: {
+      messages: Message[];
+      initial_search_query_count: number;
+      max_research_loops: number;
+      reasoning_model: string;
+    }) => {
+      setIsLoading(true);
+      setError(null);
+      setMessages(config.messages);
+      setProcessedEventsTimeline([]); // Reset events
+      
+      try {
+        const apiUrl = import.meta.env.DEV ? "http://localhost:2024" : "";
+        const endpoint = "/research-stream";
+        
+        // Get the user query from the latest message
+        const userQuery = config.messages[config.messages.length - 1]?.content || "";
+        
+        const requestBody = {
+          query: userQuery,
+          max_research_loops: config.max_research_loops,
+          number_of_initial_queries: config.initial_search_query_count,
+          reasoning_model: config.reasoning_model,
         };
-      } else if (event.web_research) {
-        const sources = event.web_research.sources_gathered || [];
-        const numSources = sources.length;
-        const uniqueLabels = [
-          ...new Set(sources.map((s: any) => s.label).filter(Boolean)),
-        ];
-        const exampleLabels = uniqueLabels.slice(0, 3).join(", ");
-        processedEvent = {
-          title: "Web Research",
-          data: `Gathered ${numSources} sources. Related to: ${
-            exampleLabels || "N/A"
-          }.`,
-        };
-      } else if (event.reflection) {
-        processedEvent = {
-          title: "Reflection",
-          data: "Analysing Web Research Results",
-        };
-      } else if (event.finalize_answer) {
-        processedEvent = {
-          title: "Finalizing Answer",
-          data: "Composing and presenting the final answer.",
-        };
-        hasFinalizeEventOccurredRef.current = true;
-      }
-      if (processedEvent) {
-        setProcessedEventsTimeline((prevEvents) => [
-          ...prevEvents,
-          processedEvent!,
-        ]);
+
+        const response = await fetch(`${apiUrl}${endpoint}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+
+        if (reader) {
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              const chunk = decoder.decode(value);
+              console.log('Received chunk:', chunk); // Debug log
+              const lines = chunk.split('\n');
+
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  try {
+                    const eventData = JSON.parse(line.slice(6));
+                    console.log('Parsed event:', eventData); // Debug log
+                    
+                    if (eventData.type === 'step') {
+                      // Add step to timeline
+                      setProcessedEventsTimeline(prev => [...prev, {
+                        title: eventData.title,
+                        data: eventData.data
+                      }]);
+                    } else if (eventData.type === 'complete') {
+                      // Set final result
+                      const result = eventData.result;
+                      console.log('Final result:', result); // Debug log
+                      
+                      // Add AI response to messages
+                      setMessages(prev => [...prev, {
+                        type: "ai",
+                        content: result.answer,
+                        id: Date.now().toString(),
+                      }]);
+                      
+                      // Add final step
+                      setProcessedEventsTimeline(prev => [...prev, {
+                        title: "Research Complete",
+                        data: `Confidence: ${Math.round(result.confidence_score * 100)}%`,
+                      }]);
+                      
+                      hasFinalizeEventOccurredRef.current = true;
+                    } else if (eventData.type === 'error') {
+                      console.error('Stream error:', eventData.error); // Debug log
+                      throw new Error(eventData.error);
+                    }
+                  } catch (parseError) {
+                    console.warn('Failed to parse event data:', parseError, 'Line:', line);
+                  }
+                }
+              }
+            }
+          } finally {
+            reader.releaseLock();
+          }
+        }
+        
+      } catch (error) {
+        console.error('Error in API call:', error);
+        setError(error instanceof Error ? error.message : 'Unknown error');
+      } finally {
+        setIsLoading(false);
       }
     },
-    onError: (error: any) => {
-      setError(error.message);
-    },
-  });
+    stop: () => {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -80,15 +145,15 @@ export default function App() {
         scrollViewport.scrollTop = scrollViewport.scrollHeight;
       }
     }
-  }, [thread.messages]);
+  }, [messages]);
 
   useEffect(() => {
     if (
       hasFinalizeEventOccurredRef.current &&
-      !thread.isLoading &&
-      thread.messages.length > 0
+      !isLoading &&
+      messages.length > 0
     ) {
-      const lastMessage = thread.messages[thread.messages.length - 1];
+      const lastMessage = messages[messages.length - 1];
       if (lastMessage && lastMessage.type === "ai" && lastMessage.id) {
         setHistoricalActivities((prev) => ({
           ...prev,
@@ -97,7 +162,7 @@ export default function App() {
       }
       hasFinalizeEventOccurredRef.current = false;
     }
-  }, [thread.messages, thread.isLoading, processedEventsTimeline]);
+  }, [messages, isLoading, processedEventsTimeline]);
 
   const handleSubmit = useCallback(
     (submittedInputValue: string, effort: string, model: string) => {
@@ -127,7 +192,7 @@ export default function App() {
       }
 
       const newMessages: Message[] = [
-        ...(thread.messages || []),
+        ...(messages || []),
         {
           type: "human",
           content: submittedInputValue,
@@ -141,7 +206,7 @@ export default function App() {
         reasoning_model: model,
       });
     },
-    [thread]
+    [messages, thread]
   );
 
   const handleCancel = useCallback(() => {
@@ -150,32 +215,38 @@ export default function App() {
   }, [thread]);
 
   return (
-    <div className="flex h-screen bg-neutral-800 text-neutral-100 font-sans antialiased">
-      <main className="h-full w-full max-w-4xl mx-auto">
-          {thread.messages.length === 0 ? (
+    <div className="flex h-screen bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900 text-neutral-100 font-sans antialiased">
+      <main className="h-full w-full max-w-5xl mx-auto p-4">
+        <div className="h-full rounded-xl border border-neutral-700 bg-neutral-800/50 backdrop-blur-sm shadow-2xl">
+          {messages.length === 0 ? (
             <WelcomeScreen
               handleSubmit={handleSubmit}
-              isLoading={thread.isLoading}
+              isLoading={isLoading}
               onCancel={handleCancel}
             />
           ) : error ? (
             <div className="flex flex-col items-center justify-center h-full">
-              <div className="flex flex-col items-center justify-center gap-4">
-                <h1 className="text-2xl text-red-400 font-bold">Error</h1>
-                <p className="text-red-400">{JSON.stringify(error)}</p>
-
+              <div className="flex flex-col items-center justify-center gap-6 p-8 rounded-lg bg-red-900/20 border border-red-500/30">
+                <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center">
+                  <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <h1 className="text-2xl text-red-400 font-bold">Research Error</h1>
+                <p className="text-red-300 text-center max-w-md">{error}</p>
                 <Button
                   variant="destructive"
                   onClick={() => window.location.reload()}
+                  className="bg-red-600 hover:bg-red-700"
                 >
-                  Retry
+                  Try Again
                 </Button>
               </div>
             </div>
           ) : (
             <ChatMessagesView
-              messages={thread.messages}
-              isLoading={thread.isLoading}
+              messages={messages}
+              isLoading={isLoading}
               scrollAreaRef={scrollAreaRef}
               onSubmit={handleSubmit}
               onCancel={handleCancel}
@@ -183,6 +254,7 @@ export default function App() {
               historicalActivities={historicalActivities}
             />
           )}
+        </div>
       </main>
     </div>
   );

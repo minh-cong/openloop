@@ -1,5 +1,4 @@
 import type React from "react";
-import type { Message } from "@langchain/langgraph-sdk";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2, Copy, CopyCheck } from "lucide-react";
 import { InputForm } from "@/components/InputForm";
@@ -7,7 +6,13 @@ import { Button } from "@/components/ui/button";
 import { useState, ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
+
+// Define Message type locally
+interface Message {
+  type: "human" | "ai";
+  content: string;
+  id: string;
+}
 import {
   ActivityTimeline,
   ProcessedEvent,
@@ -42,19 +47,40 @@ const mdComponents = {
       {children}
     </p>
   ),
-  a: ({ className, children, href, ...props }: MdComponentProps) => (
-    <Badge className="text-xs mx-0.5">
-      <a
-        className={cn("text-blue-400 hover:text-blue-300 text-xs", className)}
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        {...props}
-      >
-        {children}
-      </a>
-    </Badge>
-  ),
+  a: ({ className, children, href, ...props }: MdComponentProps) => {
+    // Debug log to check href
+    console.log('Link href:', href, 'children:', children);
+    
+    const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+      // Prevent default if href is invalid
+      if (!href || href === '#' || href.startsWith('#')) {
+        e.preventDefault();
+        console.warn('Invalid href detected:', href);
+        return;
+      }
+      
+      // Force external link behavior
+      e.preventDefault();
+      e.stopPropagation();
+      window.open(href, '_blank', 'noopener,noreferrer');
+    };
+    
+    return (
+      <span className="inline-flex items-center">
+        <a
+          className={cn("text-blue-400 hover:text-blue-300 underline text-sm cursor-pointer", className)}
+          href={href}
+          onClick={handleClick}
+          {...props}
+        >
+          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+          </svg>
+          {children}
+        </a>
+      </span>
+    );
+  },
   ul: ({ className, children, ...props }: MdComponentProps) => (
     <ul className={cn("list-disc pl-6 mb-3", className)} {...props}>
       {children}
@@ -226,7 +252,7 @@ interface ChatMessagesViewProps {
   messages: Message[];
   isLoading: boolean;
   scrollAreaRef: React.RefObject<HTMLDivElement | null>;
-  onSubmit: (inputValue: string, effort: string, model: string) => void;
+  onSubmit: (inputValue: string, effort: string, model: string, useMultiAgent?: boolean) => void;
   onCancel: () => void;
   liveActivityEvents: ProcessedEvent[];
   historicalActivities: Record<string, ProcessedEvent[]>;

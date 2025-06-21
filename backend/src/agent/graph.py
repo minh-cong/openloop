@@ -7,7 +7,7 @@ from langgraph.types import Send
 from langgraph.graph import StateGraph
 from langgraph.graph import START, END
 from langchain_core.runnables import RunnableConfig
-from google.genai import Client
+from langchain_openai import ChatOpenAI
 
 from agent.state import (
     OverallState,
@@ -23,7 +23,6 @@ from agent.prompts import (
     reflection_instructions,
     answer_instructions,
 )
-from langchain_google_genai import ChatGoogleGenerativeAI
 from agent.utils import (
     get_citations,
     get_research_topic,
@@ -31,20 +30,22 @@ from agent.utils import (
     resolve_urls,
 )
 
+try:
+    from tavily import TavilyClient
+    TAVILY_AVAILABLE = True
+except ImportError:
+    TAVILY_AVAILABLE = False
+
 load_dotenv()
 
-if os.getenv("GEMINI_API_KEY") is None:
-    raise ValueError("GEMINI_API_KEY is not set")
-
-# Used for Google Search API
-genai_client = Client(api_key=os.getenv("GEMINI_API_KEY"))
-
+if os.getenv("OPENAI_API_KEY") is None:
+    raise ValueError("OPENAI_API_KEY is not set")
 
 # Nodes
 def generate_query(state: OverallState, config: RunnableConfig) -> QueryGenerationState:
     """LangGraph node that generates search queries based on the User's question.
 
-    Uses Gemini 2.0 Flash to create an optimized search queries for web research based on
+    Uses gpt-4o-mini to create an optimized search queries for web research based on
     the User's question.
 
     Args:
@@ -59,13 +60,28 @@ def generate_query(state: OverallState, config: RunnableConfig) -> QueryGenerati
     # check for custom initial search query count
     if state.get("initial_search_query_count") is None:
         state["initial_search_query_count"] = configurable.number_of_initial_queries
+    
+    # Check if we're in demo mode (no Tavily key)
+    if (not os.getenv("TAVILY_API_KEY") or 
+        os.getenv("TAVILY_API_KEY") == "your_tavily_api_key_here"):
+        
+        # Demo mode - return mock queries
+        research_topic = get_research_topic(state["messages"])
+        num_queries = state["initial_search_query_count"]
+        
+        # Generate simple mock queries
+        mock_queries = []
+        for i in range(num_queries):
+            mock_queries.append(f"Query {i+1} about {research_topic}")
+        
+        return {"search_query": mock_queries}
 
-    # init Gemini 2.0 Flash
-    llm = ChatGoogleGenerativeAI(
+    # init gpt-4o-mini
+    llm = ChatOpenAI(
         model=configurable.query_generator_model,
         temperature=1.0,
         max_retries=2,
-        api_key=os.getenv("GEMINI_API_KEY"),
+        api_key=os.getenv("OPENAI_API_KEY"),
     )
     structured_llm = llm.with_structured_output(SearchQueryList)
 
@@ -93,9 +109,9 @@ def continue_to_web_research(state: QueryGenerationState):
 
 
 def web_research(state: WebSearchState, config: RunnableConfig) -> OverallState:
-    """LangGraph node that performs web research using the native Google Search API tool.
+    """LangGraph node that performs web research using the Tavily API.
 
-    Executes a web search using the native Google Search API tool in combination with Gemini 2.0 Flash.
+    Executes a web search using Tavily API to gather real, detailed information from the web.
 
     Args:
         state: Current graph state containing the search query and research loop count
@@ -106,32 +122,113 @@ def web_research(state: WebSearchState, config: RunnableConfig) -> OverallState:
     """
     # Configure
     configurable = Configuration.from_runnable_config(config)
-    formatted_prompt = web_searcher_instructions.format(
-        current_date=get_current_date(),
-        research_topic=state["search_query"],
-    )
+    
+    search_query = state["search_query"]
+    sources_gathered = []
+    
+    # Check if we're in demo/test mode (no API keys)
+    if (not os.getenv("TAVILY_API_KEY") or 
+        os.getenv("TAVILY_API_KEY") == "your_tavily_api_key_here" or
+        not os.getenv("OPENAI_API_KEY") or
+        os.getenv("OPENAI_API_KEY") == "your_openai_api_key_here"):
+        
+        # Demo mode - return mock data
+        sources_gathered = [
+            {"url": "https://example.com/source1", "title": f"Research Source 1 for '{search_query}'"},
+            {"url": "https://example.com/source2", "title": f"Research Source 2 for '{search_query}'"},
+            {"url": "https://example.com/source3", "title": f"Research Source 3 for '{search_query}'"}
+        ]
+        
+        mock_content = f"""Based on research for query: "{search_query}":
 
-    # Uses the google genai client as the langchain client doesn't return grounding metadata
-    response = genai_client.models.generate_content(
-        model=configurable.query_generator_model,
-        contents=formatted_prompt,
-        config={
-            "tools": [{"google_search": {}}],
-            "temperature": 0,
-        },
+1. This is a demo analysis of the topic
+2. Key insights and current information would appear here
+3. Multiple perspectives are considered in real research
+4. Current trends and developments are incorporated
+5. Information is up-to-date and relevant
+
+Note: Demo mode - configure TAVILY_API_KEY and OPENAI_API_KEY for real results."""
+
+        return {
+            "sources_gathered": sources_gathered,
+            "search_query": [search_query],
+            "web_research_result": [mock_content],
+        }
+    
+    # Use Tavily for real web search
+    if not TAVILY_AVAILABLE:
+        raise ImportError("Tavily package is required but not installed. Please install with: pip install tavily-python")
+    
+    if not os.getenv("TAVILY_API_KEY"):
+        raise ValueError("TAVILY_API_KEY environment variable is required but not set")
+    
+    try:
+        tavily = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
+        search_results = tavily.search(
+            query=search_query,
+            search_depth="advanced",  # Use advanced search for more detailed results
+            max_results=8,  # Increase results for better coverage
+            include_answer=True,  # Include AI-generated answer
+            include_raw_content=True  # Include full content
+        )
+        
+        # Extract content and URLs from search results
+        search_content = []
+        for result in search_results.get("results", []):
+            url = result.get("url", "")
+            title = result.get("title", "")
+            content = result.get("content", "")
+            raw_content = result.get("raw_content", "")
+            
+            if url and title:
+                sources_gathered.append({"url": url, "title": title})
+                # Use raw_content if available for more detail, otherwise use content
+                full_content = raw_content if raw_content else content
+                search_content.append(f"**{title}**\nURL: {url}\nContent: {full_content}\n{'='*50}")
+        
+        # Include Tavily's AI answer if available
+        tavily_answer = search_results.get("answer", "")
+        answer_section = f"\n\nTavily AI Summary:\n{tavily_answer}\n{'='*50}\n" if tavily_answer else ""
+        
+        # Create comprehensive research summary from real search results
+        formatted_prompt = f"""
+        Based on the following REAL web search results for query: "{search_query}", 
+        create a comprehensive and detailed research summary. Use all the information provided below.
+        
+        {answer_section}
+        
+        Detailed Search Results:
+        {chr(10).join(search_content)}
+        
+        Current Date: {get_current_date()}
+        
+        Instructions:
+        - Synthesize ALL the information from the search results above
+        - Provide a comprehensive, well-structured summary
+        - Include specific details, statistics, and examples from the sources
+        - Organize the information logically with clear sections
+        - Ensure the summary is thorough and informative (aim for detailed coverage)
+        - Reference the key points from multiple sources when applicable
+        """
+        
+    except Exception as e:
+        print(f"Tavily search failed: {e}")
+        raise RuntimeError(f"Web search failed: {str(e)}. Please check your Tavily API key and connection.")
+
+    # Use OpenAI to process the search results with better model for analysis
+    llm = ChatOpenAI(
+        model="gpt-4o-mini",  # Use consistent model
+        temperature=0.1,  # Slightly more creative while staying factual
+        max_retries=2,
+        api_key=os.getenv("OPENAI_API_KEY"),
     )
-    # resolve the urls to short urls for saving tokens and time
-    resolved_urls = resolve_urls(
-        response.candidates[0].grounding_metadata.grounding_chunks, state["id"]
-    )
-    # Gets the citations and adds them to the generated text
-    citations = get_citations(response, resolved_urls)
-    modified_text = insert_citation_markers(response.text, citations)
-    sources_gathered = [item for citation in citations for item in citation["segments"]]
+    
+    response = llm.invoke(formatted_prompt)
+    modified_text = response.content
 
     return {
         "sources_gathered": sources_gathered,
-        "search_query": [state["search_query"]],
+        "search_query": [search_query],
         "web_research_result": [modified_text],
     }
 
@@ -154,6 +251,34 @@ def reflection(state: OverallState, config: RunnableConfig) -> ReflectionState:
     # Increment the research loop count and get the reasoning model
     state["research_loop_count"] = state.get("research_loop_count", 0) + 1
     reasoning_model = state.get("reasoning_model", configurable.reflection_model)
+    
+    # Check if we're in demo mode (no Tavily key)
+    if (not os.getenv("TAVILY_API_KEY") or 
+        os.getenv("TAVILY_API_KEY") == "your_tavily_api_key_here"):
+        
+        # Demo mode - return mock reflection
+        research_loop_count = state["research_loop_count"]
+        max_loops = configurable.max_research_loops
+        
+        if research_loop_count >= max_loops:
+            # Consider research sufficient
+            return {
+                "is_sufficient": True,
+                "knowledge_gap": "Research is sufficient for demo purposes",
+                "follow_up_queries": [],
+                "research_loop_count": research_loop_count,
+                "number_of_ran_queries": len(state["search_query"]),
+            }
+        else:
+            # Generate mock follow-up queries
+            topic = get_research_topic(state["messages"])
+            return {
+                "is_sufficient": False,
+                "knowledge_gap": f"Additional information needed about {topic}",
+                "follow_up_queries": [f"More details about {topic}", f"Recent updates on {topic}"],
+                "research_loop_count": research_loop_count,
+                "number_of_ran_queries": len(state["search_query"]),
+            }
 
     # Format the prompt
     current_date = get_current_date()
@@ -163,11 +288,11 @@ def reflection(state: OverallState, config: RunnableConfig) -> ReflectionState:
         summaries="\n\n---\n\n".join(state["web_research_result"]),
     )
     # init Reasoning Model
-    llm = ChatGoogleGenerativeAI(
+    llm = ChatOpenAI(
         model=reasoning_model,
         temperature=1.0,
         max_retries=2,
-        api_key=os.getenv("GEMINI_API_KEY"),
+        api_key=os.getenv("OPENAI_API_KEY"),
     )
     result = llm.with_structured_output(Reflection).invoke(formatted_prompt)
 
@@ -232,33 +357,75 @@ def finalize_answer(state: OverallState, config: RunnableConfig):
     """
     configurable = Configuration.from_runnable_config(config)
     reasoning_model = state.get("reasoning_model") or configurable.answer_model
+    
+    # Check if we're in demo mode (no Tavily key)
+    if (not os.getenv("TAVILY_API_KEY") or 
+        os.getenv("TAVILY_API_KEY") == "your_tavily_api_key_here"):
+        
+        # Demo mode - return mock final answer
+        research_topic = get_research_topic(state["messages"])
+        research_results = state.get("web_research_result", [])
+        
+        # Create a simple final answer for demo
+        demo_answer = f"""# Research Results for: {research_topic}
 
-    # Format the prompt
+Based on the research conducted, here are the key findings:
+
+## Summary
+{chr(10).join(research_results)}
+
+## Conclusion
+This research provides comprehensive information about {research_topic}. The findings are based on multiple sources and current as of {get_current_date()}.
+
+*Note: This is a demo response. Configure your API keys for actual web research and AI-powered analysis.*
+"""
+        
+        unique_sources = state.get("sources_gathered", [])
+        return {
+            "messages": [AIMessage(content=demo_answer)],
+            "sources_gathered": unique_sources,
+        }
+
+    # Format the prompt with actual sources
     current_date = get_current_date()
+    
+    # Create detailed sources section for the prompt
+    sources_text = ""
+    if state.get("sources_gathered"):
+        sources_text = "\n\n## Sources found during research:\n"
+        for i, source in enumerate(state["sources_gathered"], 1):
+            if isinstance(source, dict):
+                url = source.get("url", "")
+                title = source.get("title", "")
+                if url and title:
+                    sources_text += f"{i}. **{title}**: {url}\n"
+                elif url:
+                    sources_text += f"{i}. {url}\n"
+    
+    # Enhanced prompt that emphasizes using actual sources
+    research_content = "\n---\n\n".join(state["web_research_result"])
+    full_content = research_content + sources_text
+    
     formatted_prompt = answer_instructions.format(
         current_date=current_date,
         research_topic=get_research_topic(state["messages"]),
-        summaries="\n---\n\n".join(state["web_research_result"]),
+        summaries=full_content,
     )
+    
+    # Add specific instruction about sources
+    formatted_prompt += "\n\nIMPORTANT: When including sources in your answer, use the EXACT URLs provided above in the sources section. Format them as markdown links like [website name](actual_url). DO NOT use placeholder URLs."
 
-    # init Reasoning Model, default to Gemini 2.5 Flash
-    llm = ChatGoogleGenerativeAI(
+    # init Reasoning Model, default to gpt-4o-mini
+    llm = ChatOpenAI(
         model=reasoning_model,
         temperature=0,
         max_retries=2,
-        api_key=os.getenv("GEMINI_API_KEY"),
+        api_key=os.getenv("OPENAI_API_KEY"),
     )
     result = llm.invoke(formatted_prompt)
 
-    # Replace the short urls with the original urls and add all used urls to the sources_gathered
-    unique_sources = []
-    for source in state["sources_gathered"]:
-        if source["short_url"] in result.content:
-            result.content = result.content.replace(
-                source["short_url"], source["value"]
-            )
-            unique_sources.append(source)
-
+    # Use actual sources gathered from web research
+    unique_sources = state.get("sources_gathered", [])
     return {
         "messages": [AIMessage(content=result.content)],
         "sources_gathered": unique_sources,

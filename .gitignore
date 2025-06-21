@@ -1,3 +1,7 @@
+# Production deployment files
+.env.production
+docker-compose.override.yml
+
 # Node / Frontend
 node_modules/
 frontend/dist/
@@ -33,21 +37,12 @@ Thumbs.db
 *.sln
 *.sw?
 
-# Optional backend venv (if created in root)
-#.venv/ 
-
-# Byte-compiled / optimized / DLL files
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
-uv.lock
-
-# C extensions
 *.so
-
-# Distribution / packaging
-.Python
-build/
+uv.lock
 develop-eggs/
 dist/
 downloads/
