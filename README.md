@@ -1,4 +1,4 @@
-# OpenLoop Resear## 🏗️ Architecture
+# OpenLoop Research 🏗️ Architecture
 
 ```
 🔄 Single Agent Research Flow
