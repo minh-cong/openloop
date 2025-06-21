@@ -1,120 +1,80 @@
-# OpenLoop 🔄 Multi-Agent Research
+# OpenLoop Research
 
-A simple, clean multi-agent conversation interface. Built with React + TypeScript frontend and Python LangChain backend. No bloat, just the essentials for running multi-agent workflows.
+AI research assistant that searches the web and synthesizes comprehensive answers. Built with LangGraph, OpenAI, and real-time web search.
 
-Current focus is on research conversations and agent collaboration. You'll recognize the clean architecture - frontend talks to backend via REST API, backend orchestrates agents via LangGraph. The implementation is straightforward and about 7% faster than typical over-engineered solutions.
+## How it works
+
+1. Takes a question and generates optimized search queries
+2. Searches the web using Tavily API
+3. Reflects on information gaps and searches more if needed
+4. Synthesizes final answer with proper citations
 
 ## Quick Start
 
-The best way to get started is running the full stack locally:
+### Prerequisites
 
+- Node.js 18+ and npm
+- Python 3.11+
+- OpenAI API key
+- Tavily API key (optional, for web search)
+
+### Setup
+
+Backend:
 ```bash
-# Clone and setup
-git clone https://github.com/minh-cong/openloop
-cd openloop
-
-# Setup environment
-cp backend/.env.example backend/.env
-# Edit backend/.env with your API keys (OPENAI_API_KEY, TAVILY_API_KEY)
-
-# Start with Docker (recommended)
-docker-compose up --build
-
-# Or run manually
-make dev
+cd backend
+pip install -e .
+echo "OPENAI_API_KEY=your_key" > .env
+echo "TAVILY_API_KEY=your_key" >> .env
+python -m agent.app
 ```
 
-Visit `http://localhost:3000` and start chatting with agents.
-
-## Quick Start (Development)
-
-If you want to hack on the code:
-
+Frontend:
 ```bash
-# Backend (requires API keys)
-cd backend
-cp .env.example .env  # Add your API keys
-pip install -r requirements.txt  # or: pip install -e .
-langgraph dev
-
-# Frontend  
 cd frontend
 npm install
 npm run dev
 ```
 
-## Requirements
+Access at http://localhost:5173
 
-- Python 3.11+
-- Node.js 18+
-- OpenAI API key
-- Tavily API key (for web search)
+## Configuration
 
-## Environment Setup
+Set environment variables in `backend/.env`:
+```
+OPENAI_API_KEY=your_openai_api_key
+TAVILY_API_KEY=your_tavily_api_key
+```
 
-Copy the environment template and add your API keys:
+## Docker Deployment
 
 ```bash
-cp backend/.env.example backend/.env
-```
-
-Edit `backend/.env` and add:
-```bash
-OPENAI_API_KEY=your_openai_api_key_here
-TAVILY_API_KEY=your_tavily_api_key_here
-```
-
-## Architecture
-
-Simple 3-tier:
-- **Frontend**: React + TypeScript + Vite (modern, fast)
-- **Backend**: Python + LangChain + FastAPI (clean APIs)
-- **Agents**: LangGraph orchestration (modular agents)
-
-```
-Frontend (React) → Backend (FastAPI) → Agents (LangGraph)
-```
-
-No unnecessary complexity. No microservices hell. Just clean separation of concerns.
-
-## Features
-
-- **Multi-agent conversations**: Multiple AI agents can participate
-- **Real-time updates**: WebSocket-like experience via polling
-- **Clean UI**: Modern interface built with Tailwind + shadcn/ui  
-- **Extensible**: Easy to add new agent types and tools
-- **Production ready**: Docker deployment included
-
-## Deployment
-
-```bash
-# Production deployment
 ./deploy.sh
-
-# Check if everything works
-./check-production.sh
-
-# Verify deployment
-./verify-deployment.sh
 ```
 
-## Agent Configuration
+Access at http://localhost:3000
 
-Agents are configured in `backend/src/agent/configuration.py`. Add new agent types by implementing the base agent interface. The system will automatically discover and load them.
+## Stack
 
-## Development
+- Backend: FastAPI + LangGraph + OpenAI + Tavily
+- Frontend: React + TypeScript + Vite + TailwindCSS
 
-The codebase is intentionally simple:
-- `frontend/src/` - React components and UI logic
-- `backend/src/agent/` - Agent orchestration and API
-- `docker-compose.yml` - Local development environment
+## API Usage
 
-When you modify the backend agents, the system hot-reloads. Frontend has Vite HMR enabled.
+REST endpoint:
+```python
+import requests
 
-## Why OpenLoop?
+response = requests.post("http://localhost:2024/research", json={
+    "query": "Your question here",
+    "max_research_loops": 3,
+    "reasoning_model": "gpt-4o-mini"
+})
 
-Most multi-agent frameworks are overengineered. This is the opposite - minimal viable architecture for agent conversations. Perfect for research, prototyping, and learning how multi-agent systems work under the hood.
+result = response.json()
+print(result['answer'])
+```
 
 ## License
 
-MIT - do whatever you want with it.
+MIT 
