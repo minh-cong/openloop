@@ -16,7 +16,7 @@ AI research assistant that searches the web and synthesizes comprehensive answer
 - Node.js 18+ and npm
 - Python 3.11+
 - OpenAI API key
-- Tavily API key (optional, for web search)
+- Tavily API key (required, for web search)
 
 ### Setup
 
